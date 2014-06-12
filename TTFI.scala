@@ -31,17 +31,23 @@ object TTFI {
     // {{{ FP
 
     object FP {
-      // adding multiple eval functions is easy, but extending the language to
-      // include different cases is hard
+      sealed trait Exp[A]
+      case class Lit(x: Integer) extends Exp[Integer]
+      case class Neg(x: Exp[Integer]) extends Exp[Integer]
+      case class Add(x: Exp[Integer], y: Exp[Integer]) extends Exp[Integer]
+
+      // adding multiple eval functions is easy as long as we don't extend the
+      // language
       def eval[A](x: Exp[A]): A = x match {
         case Lit(x) => x
         case Neg(x) => -eval(x)
         case Add(x, y) => eval(x) + eval(y)
       }
-      sealed trait Exp[A]
-      case class Lit(x: Integer) extends Exp[Integer]
-      case class Neg(x: Exp[Integer]) extends Exp[Integer]
-      case class Add(x: Exp[Integer], y: Exp[Integer]) extends Exp[Integer]
+      def view[A](x: Exp[A]): String = x match {
+        case Lit(x) => x.toString
+        case Neg(x) => s"(-${view(x)})"
+        case Add(x, y) => s"(${view(x)} + ${view(y)})"
+      }
 
       val tf1 = Add(Lit(8), Neg(Add(Lit(1), Lit(2))))
 
@@ -53,6 +59,7 @@ object TTFI {
         case Neg(Add(e1, e2)) => Add(pushNeg(Neg(e1)), pushNeg(Neg(e2)))
         case Add(e1, e2) => Add(pushNeg(e1), pushNeg(e2))
       }
+      val result = view(pushNeg(tf1))
     }
 
     // }}}
