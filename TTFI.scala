@@ -55,7 +55,11 @@ object TTFI {
       def pushNeg(x: Exp[Integer]): Exp[Integer] = x match {
         case e @ Lit(_) => e
         case e @ Neg(Lit(_)) => e
+        // pattern matching being used to decide when to cancel Neg
         case Neg(Neg(e)) => pushNeg(e)
+        // see how processing of a negated expression depends on the form of
+        // said expression, breaking context insensitivity and leaking
+        // abstraction. *not* structurally inductive
         case Neg(Add(e1, e2)) => Add(pushNeg(Neg(e1)), pushNeg(Neg(e2)))
         case Add(e1, e2) => Add(pushNeg(e1), pushNeg(e2))
       }
@@ -70,30 +74,32 @@ object TTFI {
 
     object ExpSym {
       trait ExpSym[repr] {
-        def lit: Integer => repr
-        def neg: repr => repr
-        def add: repr => repr => repr
+        def lit: Integer => (Integer, repr)
+        def neg: ((Integer, repr)) => (Integer, repr)
+        def add: ((Integer, repr)) => ((Integer, repr)) => (Integer, repr)
       }
 
       implicit object ExpSym_Integer extends ExpSym[Integer] {
-        def lit = (x: Integer) => x
-        def neg = (x: Integer) => -x
-        def add = (x: Integer) => (y: Integer) => x + y
+        def lit = (x: Integer) => (null, x)
+        def neg = (x: (Integer, Integer)) => (x._1, -x._2)
+        def add = (x: (Integer, Integer)) => (y: (Integer, Integer)) => (y._1, x._2 + y._2)
       }
-      def eval: Integer => Integer = identity[Integer] _
+      // run the Integer interpreter
+      def eval: ((Any, Integer)) => Integer = _._2
 
       implicit object ExpSym_String extends ExpSym[String] {
-        def lit = (x: Integer) => x.toString
-        def neg = (x: String) => s"(-${x})"
-        def add = (x: String) => (y: String) => s"(${x} + ${y})"
+        def lit = (x: Integer) => (null, x.toString)
+        def neg = (x: (Integer, String)) => (x._1, s"(-${x._2})")
+        def add = (x: (Integer, String)) => (y: (Integer, String)) => (y._1, s"(${x._2} + ${y._2})")
       }
-      def view: String => String = identity[String] _
+      // run the String interpreter
+      def view: ((Any, String)) => String = _._2
 
       object Use {
-        def tf1[repr](implicit s1: ExpSym[repr]): repr = {
+        def tf1[repr](implicit s1: ExpSym[repr]): (Integer, repr) = {
           s1.add(s1.lit(8))(s1.neg(s1.add(s1.lit(1))(s1.lit(2))))
         }
-        def tf2[T](implicit s1: ExpSym[T]): T = {
+        def tf2[T](implicit s1: ExpSym[T]): (Integer, T) = {
           s1.neg(tf1[T])
         }
 
@@ -115,15 +121,17 @@ object TTFI {
     // {{{ MulSym
 
     object MulSym {
+      // add multiplication operation to the Exp dsl
       trait MulSym[repr] {
-        def mul: repr => repr => repr
+        def mul: ((Integer, repr)) => ((Integer, repr)) => (Integer, repr)
       }
 
+      // multiplication for Integer domain
       implicit object MulSym_Integer extends MulSym[Integer] {
-        def mul = (x: Integer) => (y: Integer) => x * y
+        def mul = (x: (Integer, Integer)) => (y: (Integer, Integer)) => (y._1, x._2 * y._2)
       }
       implicit object MulSym_String extends MulSym[String] {
-        def mul = (x: String) => (y: String) => s"(${x} * ${y})"
+        def mul = (x: (Integer, String)) => (y: (Integer, String)) => (y._1, s"(${x._2} * ${y._2})")
       }
 
       object Use {
@@ -132,8 +140,8 @@ object TTFI {
           s1.add(s1.lit(8))(s1.neg(s2.mul(s1.lit(1))(s1.lit(2))))
         }
 
-        val result = tfm1[Integer]
-        val result2 = tfm1[String]
+        val result = eval(tfm1[Integer])
+        val result2 = view(tfm1[String])
       }
     }
 
@@ -142,35 +150,43 @@ object TTFI {
     // {{{ PushNeg
 
     object PushNeg {
+      // make the context on which the operation depends explicit
       sealed trait Ctx
       case object Pos extends Ctx
       case object Neg extends Ctx
 
-      def apply[T](e: Ctx => T): T = e(Pos)
+      // pass Ctx to a Ctx dependent expression
+      def passCtx[T](x: Ctx)(e: (Integer, Ctx => T)): (Integer, T) = (e._1, e._2(x))
+      // PushNeg.apply === pushNeg (in Initial version). pass in the 'no-op'/
+      // base context
+      def apply[T](e: (Integer, Ctx => T)): (Integer, T) = passCtx(Pos)(e)
 
       import ExpSym._
+      // what we'd like is something like the following:
+      // implicit object ExpSym_Ctx[R](implicit s1: ExpSym[R]) extends ExpSym[Ctx => R]
+      //
       // due to limitation that scala objects need to have a concrete type, this
       // needs to be an 'implicit class'. _x is needed due to the requirement that
       // implicit classes have one argument
       implicit class ExpSym_Ctx[R](_x: Any = null)(implicit s1: ExpSym[R]) extends ExpSym[Ctx => R] {
-        def lit = (x: Integer) => (ctx: Ctx) => ctx match {
+        def lit = (x: Integer) => (null, (ctx: Ctx) => (ctx match {
           case Pos => s1.lit(x)
           case Neg => s1.neg(s1.lit(x))
-        }
-        def neg = (e: Ctx => R) => (ctx: Ctx) => ctx match {
-          case Pos => e(Neg)
-          case Neg => e(Pos)
-        }
-        def add = (e1: Ctx => R) => (e2: Ctx => R) => (ctx: Ctx) =>
-          s1.add(e1(ctx))(e2(ctx))
+        })._2)
+        def neg = (e: (Integer, Ctx => R)) => (e._1, (ctx: Ctx) => ctx match {
+          case Pos => e._2(Neg)
+          case Neg => e._2(Pos)
+        })
+        def add = (e1: (Integer, Ctx => R)) => (e2: (Integer, Ctx => R)) => (e2._1, (ctx: Ctx) =>
+          s1.add(passCtx(ctx)(e1))(passCtx(ctx)(e2))._2)
       }
 
       import MulSym._
       implicit class MulSym_Ctx[R](_x: Any = null)(implicit s1: MulSym[R]) extends MulSym[Ctx => R] {
-        def mul = (e1: Ctx => R) => (e2: Ctx => R) => (ctx: Ctx) => ctx match {
-          case Pos => s1.mul(e1(Pos))(e2(Pos))
-          case Neg => s1.mul(e1(Pos))(e2(Neg))
-        }
+        def mul = (e1: (Integer, Ctx => R)) => (e2: (Integer, Ctx => R)) => (e2._1, (ctx: Ctx) => (ctx match {
+          case Pos => s1.mul(passCtx(Pos)(e1))(passCtx(Pos)(e2))
+          case Neg => s1.mul(passCtx(Pos)(e1))(passCtx(Neg)(e2))
+        })._2)
       }
 
       object Use {
@@ -188,62 +204,57 @@ object TTFI {
     // {{{ TreeSem
 
     object TreeSem {
+      // our extensible serialization format
       sealed trait Tree
       case class Leaf(data: String) extends Tree
       case class Node(data: String, rest: Seq[Tree]) extends Tree
 
       import ExpSym._
+      // serializer for ExpSym
       implicit object ExpSym_Tree extends ExpSym[Tree] {
-        def lit = (x: Integer) => Node("Lit", Seq(Leaf(s"${x}")))
-        def neg = (x: Tree) => Node("Neg", Seq(x))
-        def add = (x: Tree) => (y: Tree) => Node("Add", Seq(x, y))
+        def lit = (x: Integer) => (null, Node("Lit", Seq(Leaf(s"${x}"))))
+        def neg = (x: (Integer, Tree)) => (x._1, Node("Neg", Seq(x._2)))
+        def add = (x: (Integer, Tree)) => (y: (Integer, Tree)) => (y._1, Node("Add", Seq(x._2, y._2)))
       }
-      def toTree: Tree => Tree = identity[Tree] _
+      // run the serializer
+      def toTree: ((Any, Tree)) => Tree = _._2
 
       val tf1_tree = toTree(ExpSym.Use.tf1[Tree])
 
       import MulSym._
+      // extending the serializer for MulSym
       implicit object MulSym_Tree extends MulSym[Tree] {
-        def mul = (x: Tree) => (y: Tree) => Node("Mul", Seq(x, y))
+        def mul = (x: (Integer, Tree)) => (y: (Integer, Tree)) => (y._1, Node("Mul", Seq(x._2, y._2)))
       }
       val tfm1_tree = toTree(MulSym.Use.tfm1[Tree])
 
       // deserialization
       type ErrMsg = String
-      import scala.util.control.Exception.catching
-      def safeRead(x: String): Either[ErrMsg, Integer] = {
-        catching(classOf[Exception]).
-          opt(x.toInt) match {
-            case None => Left(s"Read error in ${x}")
-            case Some(y) => Right(y)
-          }
+      def safeRead(x: String): Either[ErrMsg, Integer] = try {
+        Right(x.toInt)
+      } catch {
+        case e: NumberFormatException => Left(s"Read error in ${x}")
       }
 
       // {{{ closed recursion: fromTree, fromTreeExt
 
       object ClosedRecursion {
-        // this, given a Tree gives ExpSym[repr] => repr
-        def fromTree[repr](x: Tree)(implicit s1: ExpSym[repr]): Either[ErrMsg, repr] = x match {
-          case Node("Lit", Seq(Leaf(x))) => safeRead(x).fold(Left(_), x => Right(s1.lit(x)))
-          case Node("Neg", Seq(x)) => fromTree[repr](x).fold(Left(_), x => Right(s1.neg(x)))
-          case Node("Add", Seq(x, y)) => fromTree[repr](x) match {
-            case Right(a) => fromTree[repr](y) match {
-              case Right(b) => Right(s1.add(a)(b))
-              case x => x
-            }
-            case x => x
-          }
+        // this, given a Tree gives ExpSym[repr] => (Integer, repr) w/ error msgs
+        def fromTree[repr](x: Tree)(implicit s1: ExpSym[repr]): Either[ErrMsg, (Integer, repr)] = x match {
+          case Node("Lit", Seq(Leaf(x))) => safeRead(x).right.map(s1.lit(_))
+          case Node("Neg", Seq(x)) => fromTree[repr](x).right.map(s1.neg(_))
+          case Node("Add", Seq(x, y)) => for {
+            a <- fromTree[repr](x).right
+            b <- fromTree[repr](y).right
+          } yield s1.add(a)(b)
           case _ => Left(s"Parse error in ${x}")
         }
 
-        def fromTreeExt[T](x: Tree)(implicit s1: MulSym[T], s2: ExpSym[T]): Either[ErrMsg, T] = x match {
-          case Node("Mul", Seq(x, y)) => fromTree[T](x) match {
-            case Right(a) => fromTree[T](y) match {
-              case Right(b) => Right(s1.mul(a)(b))
-              case x => x
-            }
-            case x => x
-          }
+        def fromTreeExt[T](x: Tree)(implicit s1: MulSym[T], s2: ExpSym[T]): Either[ErrMsg, (Integer, T)] = x match {
+          case Node("Mul", Seq(x, y)) => for {
+            a <- fromTree[T](x).right
+            b <- fromTree[T](y).right
+          } yield s1.mul(a)(b)
           case x => fromTree[T](x)
         }
       }
@@ -255,10 +266,12 @@ object TTFI {
       object OpenRecursion {
         import scala.annotation.tailrec
 
+        // not tail-recursive
         def fix[A, B](f: (A => B) => (A => B)): A => B = {
           f((x: A) => fix(f)(x))
         }
 
+        // tail-recursive version of fixpoint, by doubling composition
         object Fix {
           case class FixException extends RuntimeException
           @tailrec def apply[A, B](f: (A => B) => (A => B))(x: A): B = try {
@@ -268,31 +281,25 @@ object TTFI {
           }
         }
 
-        def fromTree_[repr](s1: ExpSym[repr])(self: Tree => Either[ErrMsg, repr])(x: Tree) = x match {
-          case Node("Lit", Seq(Leaf(x))) => safeRead(x).fold(Left(_), x => Right(s1.lit(x)))
-          case Node("Neg", Seq(x)) => self(x).fold(Left(_), x => Right(s1.neg(x)))
-          case Node("Add", Seq(x, y)) => self(x) match {
-            case Right(a) => self(y) match {
-              case Right(b) => Right(s1.add(a)(b))
-              case x => x
-            }
-            case x => x
-          }
+        def fromTree_[repr](s1: ExpSym[repr])(self: Tree => Either[ErrMsg, (Integer, repr)])(x: Tree) = x match {
+          case Node("Lit", Seq(Leaf(x))) => safeRead(x).right.map(s1.lit(_))
+          case Node("Neg", Seq(x)) => self(x).right.map(s1.neg(_))
+          case Node("Add", Seq(x, y)) => for {
+            a <- self(x).right
+            b <- self(y).right
+          } yield s1.add(a)(b)
           case _ => Left(s"Parse error in ${x}")
         }
         def fromTree[T](x: Tree)(implicit s1: ExpSym[T]) = Fix(fromTree_[T](s1))(x)
 
-        def fromTreeExt_[T](s: (MulSym[T], ExpSym[T]))(self: Tree => Either[ErrMsg, T])(x: Tree): Either[ErrMsg, T] = x match {
-          case Node("Mul", Seq(x, y)) => self(x) match {
-            case Right(a) => self(y) match {
-              case Right(b) => Right(s._1.mul(a)(b))
-              case x => x
-            }
-            case x => x
-          }
-          case x => fromTree_(s._2)(self)(x)
+        def fromTreeExt_[T](s1: (MulSym[T], ExpSym[T]))(self: Tree => Either[ErrMsg, (Integer, T)])(x: Tree): Either[ErrMsg, (Integer, T)] = x match {
+          case Node("Mul", Seq(x, y)) => for {
+            a <- self(x).right
+            b <- self(y).right
+          } yield s1._1.mul(a)(b)
+          case x => fromTree_(s1._2)(self)(x)
         }
-        def fromTreeExt[T](x: Tree)(implicit s1: MulSym[T], s2: ExpSym[T]): Either[ErrMsg, T] = Fix(fromTreeExt_[T]((s1, s2)))(x)
+        def fromTreeExt[T](x: Tree)(implicit s1: MulSym[T], s2: ExpSym[T]): Either[ErrMsg, (Integer, T)] = Fix(fromTreeExt_[T]((s1, s2)))(x)
       }
 
       // }}}
@@ -321,10 +328,12 @@ object TTFI {
         // which in one go (and in haskell, lazily) does the requisite mapping to A,
         // B, C, and D types
         implicit class ExpSym_Dup[R1, R2](val x: (R1, R2))(implicit s1: ExpSym[R1], s2: ExpSym[R2]) extends ExpSym[(R1, R2)] {
-          def lit = (x: Integer) => (s1.lit(x), s2.lit(x))
-          def neg = (x: (R1, R2)) => (s1.neg(x._1), s2.neg(x._2))
-          def add = (x: (R1, R2)) => (y: (R1, R2)) => (s1.add(x._1)(y._1), s2.add(x._2)(y._2))
+          def lit = (x: Integer) => massageTuple(s1.lit(x), s2.lit(x))
+          def neg = (x: (Integer, (R1, R2))) => massageTuple(s1.neg((x._1, x._2._1)), s2.neg((x._1, x._2._2)))
+          def add = (x: (Integer, (R1, R2))) => (y: (Integer, (R1, R2))) =>
+            massageTuple(s1.add((x._1, x._2._1))((y._1, y._2._1)), s2.add((x._1, x._2._2))((y._1, y._2._2)))
         }
+        def massageTuple[T, R1, R2](x: (T, R1), y: (T, R2)) = (y._1, (x._2, y._2))
 
         def check_consume[A, B](f: A => B)(x: Either[ErrMsg, A]) = x match {
           case Left(e) => println(s"Error: ${e}")
