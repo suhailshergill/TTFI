@@ -300,6 +300,33 @@ object TTFI {
           case x => fromTree_(s1._2)(self)(x)
         }
         def fromTreeExt[T](x: Tree)(implicit s1: MulSym[T], s2: ExpSym[T]): Either[ErrMsg, (Integer, T)] = Fix(fromTreeExt_[T]((s1, s2)))(x)
+
+        // this solves the deserialization problem by deserializing to functions
+        // NOTE: 'Fix' no longer works, and we have to resort to the
+        // non-tail-recursive 'fix'
+        object Poly {
+          def fromTree_[repr](self: Tree => ExpSym[repr] => Either[ErrMsg, (Integer, repr)])(x: Tree)(s1: ExpSym[repr]) = x match {
+            case Node("Lit", Seq(Leaf(x))) => safeRead(x).right.map(s1.lit(_))
+            case Node("Neg", Seq(x)) => self(x)(s1).right.map(s1.neg(_))
+            case Node("Add", Seq(x, y)) => for {
+              a <- self(x)(s1).right
+              b <- self(y)(s1).right
+            } yield s1.add(a)(b)
+            case _ => Left(s"Parse error in ${x}")
+          }
+          def fromTree[T](x: Tree)(implicit s1: ExpSym[T]): Either[ErrMsg, (Integer, T)] =
+            fix(fromTree_[T])(x)(s1)
+
+          def fromTreeExt_[T](self: Tree => MulSym[T] => ExpSym[T] => Either[ErrMsg, (Integer, T)])(x: Tree)(s1: MulSym[T])(s2: ExpSym[T]): Either[ErrMsg, (Integer, T)] = x match {
+            case Node("Mul", Seq(x, y)) => for {
+              a <- self(x)(s1)(s2).right
+              b <- self(y)(s1)(s2).right
+            } yield s1.mul(a)(b)
+            case x => fromTree_(self(_)(s1))(x)(s2)
+          }
+          def fromTreeExt[T](x: Tree)(implicit s1: MulSym[T], s2: ExpSym[T]): Either[ErrMsg, (Integer, T)] = fix(fromTreeExt_[T])(x)(s1)(s2)
+        }
+
       }
 
       // }}}
@@ -313,11 +340,19 @@ object TTFI {
         // constructs). what the duplicating interpretor does is to have these
         // trampoline-like constructs which lazily (per use) invoke, in essence, the
         // fromTree translation (via the ExpSym instance for the 'repr' pair)
-        val result = ClosedRecursion.fromTree[String](tf1_tree)
-        val result2 = OpenRecursion.fromTree[String](tf1_tree)
+        val result = ClosedRecursion.fromTree[String](tf1_tree).right.map(view)
+        val result2 = OpenRecursion.fromTree[String](tf1_tree).right.map(view)
+        def result2a[repr](implicit s1: ExpSym[repr]): Either[ErrMsg, (Integer, repr)] = {
+          OpenRecursion.Poly.fromTree[repr](tf1_tree)
+        }
+        val result2b = result2a[String].right.map(view)
 
-        val result3 = ClosedRecursion.fromTreeExt[String](tfm1_tree)
-        val result4 = OpenRecursion.fromTreeExt[String](tfm1_tree)
+        val result3 = ClosedRecursion.fromTreeExt[String](tfm1_tree).right.map(view)
+        val result4 = OpenRecursion.fromTreeExt[String](tfm1_tree).right.map(view)
+        def result4a[repr](implicit s1: ExpSym[repr], s2: MulSym[repr]) = {
+          OpenRecursion.Poly.fromTreeExt[repr](tfm1_tree)
+        }
+        val result4b = result4a[String].right.map(view)
 
         // {{{ TODO: duplicating interpreter
 
