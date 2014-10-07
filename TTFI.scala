@@ -146,6 +146,10 @@ object TTFI {
       trait MulSym[repr[+_]] {
         def mul: repr[Integer] => repr[Integer] => repr[Integer]
       }
+      // cleaner 'constructor'
+      def Mul[repr[_]](e1: repr[Integer])(e2: repr[Integer])(implicit s1: MulSym[repr]): repr[Integer] = {
+        s1.mul(e1)(e2)
+      }
 
       // multiplication for Integer domain
       implicit object MulSym_Eval extends MulSym[Eval] {
@@ -157,7 +161,8 @@ object TTFI {
 
       object Use {
         def tfm1[repr[+_]](implicit s1: ExpSym[repr], s2: MulSym[repr]) = {
-          s1.add(s1.lit(8))(s1.neg(s2.mul(s1.lit(1))(s1.lit(2))))
+          // s1.add(s1.lit(8))(s1.neg(s2.mul(s1.lit(1))(s1.lit(2))))
+          Add(Lit[repr](8))(Neg(Mul(Lit[repr](1))(Lit[repr](2))))
         }
 
         val result = eval(tfm1[Eval])
