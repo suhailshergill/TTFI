@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<configuration scan="true" scanPeriod="30 seconds" >
+    <appender name="fileAppender" class="ch.qos.logback.core.FileAppender">
+        <encoder>
+            <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+        </encoder>
+        <param name="File" value="myLogFile.log" />
+    </appender>
+
+    <root level="debug">
+        <appender-ref ref="fileAppender" />
+    </root>
+</configuration>
