@@ -309,7 +309,7 @@ object TTFI {
         // which point it's too late (unless we override the .apply function, by
         // creating a 'Fix' object?)
         object Fix {
-          case class FixException extends RuntimeException
+          case class FixException() extends RuntimeException
           @tailrec def apply[A, B](f: (A => B) => (A => B))(x: A): B = try {
             f(_ => throw FixException())(x)
           } catch {
