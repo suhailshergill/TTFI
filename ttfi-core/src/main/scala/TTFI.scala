@@ -75,6 +75,56 @@ object TTFI {
     // let's make the representation domain explicit
     trait Repr[T]
 
+    // container to hold the result of 'Eval'-ing an expression
+    case class Eval[T](value: T) extends Repr[T]
+    // run the 'Eval' interpreter
+    def eval[T]: Eval[T] => T = _.value
+
+    // container to hold the result of 'pretty-printing' an expression
+    case class Debug[T](debug: String) extends Repr[T]
+    // run the pretty-printing interpreter
+    def view[T]: Debug[T] => String = _.debug
+
+    object NumSym {
+      trait ExpNumSym[num, repr[_]] {
+        def lit: num => repr[num]
+        def neg: repr[num] => repr[num]
+        def add: repr[num] => repr[num] => repr[num]
+      }
+      // cleaner 'constructors'
+      def Lit[num, repr[_]](x: num)(implicit s1: ExpNumSym[num, repr]): repr[num] = {
+        s1.lit(x)
+      }
+      def Neg[num, repr[_]](e: repr[num])(implicit s1: ExpNumSym[num, repr]): repr[num] = {
+        s1.neg(e)
+      }
+      def Add[num, repr[_]](e1: repr[num])(e2: repr[num])(implicit s1: ExpNumSym[num, repr]): repr[num] = {
+        s1.add(e1)(e2)
+      }
+
+      trait MulNumSym[num, repr[_]] {
+        def mul: repr[num] => repr[num] => repr[num]
+      }
+      def Mul[num, repr[_]](e1: repr[num])(e2: repr[num])(implicit s1: MulNumSym[num, repr]): repr[num] = {
+        s1.mul(e1)(e2)
+      }
+
+      implicit object ExpSymIntEval extends ExpNumSym[Int, Eval] {
+        def lit = Eval(_)
+        def neg = x => Eval(-x.value)
+        def add = x => y => Eval(x.value + y.value)
+      }
+
+      implicit object MulSymIntEval extends MulNumSym[Int, Eval] {
+        def mul = x => y => Eval(x.value * y.value)
+      }
+
+      def tf1[num, repr[_]](x: num)(implicit s1: ExpNumSym[num, repr]): repr[num] =
+        Add(Neg(Lit[num, repr](x)))(Lit[num, repr](x))
+
+      val result1 = eval(tf1(10))
+    }
+
     object ExpSym {
       // let's declare our 'Exp' "datatype", i.e., define syntax
       trait ExpSym[repr[_]] {
@@ -93,21 +143,13 @@ object TTFI {
         s1.add(e1)(e2)
       }
 
-      // container to hold the result of 'Eval'-ing an expression
-      case class Eval[T](value: T) extends Repr[T]
       // 'Eval' interpreter definition
       implicit object ExpSym_Eval extends ExpSym[Eval] {
         def lit = Eval(_)
         def neg = x => Eval(-x.value)
         def add = x => y => Eval(x.value + y.value)
       }
-      // run the 'Eval' interpreter
-      def eval[T]: Eval[T] => T = _.value
 
-      // container to hold the result of 'pretty-printing' an expression
-      case class Debug[T](debug: String) extends Repr[T]
-      // run the pretty-printing interpreter
-      def view[T]: Debug[T] => String = _.debug
       // definition of pretty-printing interpreter
       implicit object ExpSym_Debug extends ExpSym[Debug] {
         def lit = x => Debug(x.toString)
@@ -220,7 +262,6 @@ object TTFI {
       }
 
       object Use {
-        import ExpSym.{ Debug, view }
         import ExpSym.Use.tf1
         val result = view(PushNeg(tf1[Ctx_=>[Debug]#τ]({})))
 

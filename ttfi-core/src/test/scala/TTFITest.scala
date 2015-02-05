@@ -14,6 +14,10 @@ class ttfi1 extends WordSpec {
       println(Final.MulSym.Use.result2)
     }
 
+    "NumSym" in {
+      expectResult(0)(Final.NumSym.result1)
+    }
+
     "PushNeg" in {
       println(Final.PushNeg.Use.result)
       println(Final.PushNeg.Use.result2)
