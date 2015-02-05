@@ -15,6 +15,7 @@ class ttfi1 extends WordSpec {
     }
 
     "NumSym" in {
+      expectResult(classOf[Long])(Final.NumSym.result1.getClass)
       expectResult(0)(Final.NumSym.result1)
     }
 
