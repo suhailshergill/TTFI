@@ -1,6 +1,6 @@
 import org.scalatest._
 
-class foo extends WordSpec {
+class ttfi1 extends WordSpec {
   "TTFI" should {
     import TTFI._
 
@@ -12,6 +12,12 @@ class foo extends WordSpec {
     "MulSym" in {
       println(Final.MulSym.Use.result)
       println(Final.MulSym.Use.result2)
+    }
+
+    "PushNeg" in {
+      println(Final.PushNeg.Use.result)
+      println(Final.PushNeg.Use.result2)
+      assert(Initial.FP.result == Final.PushNeg.Use.result)
     }
 
     "TreeSem" in {
@@ -26,12 +32,6 @@ class foo extends WordSpec {
       assertResult(Final.TreeSem.Use.result4) {
         Final.TreeSem.Use.result4b
       }
-    }
-
-    "PushNeg" in {
-      println(Final.PushNeg.Use.result)
-      println(Final.PushNeg.Use.result2)
-      assert(Initial.FP.result == Final.PushNeg.Use.result)
     }
 
   }
