@@ -86,6 +86,8 @@ object TTFI {
     def view[T]: Debug[T] => String = _.debug
 
     object NumSym {
+      import language.implicitConversions._
+
       trait ExpNumSym[num, repr[_]] {
         def lit: num => repr[num]
         def neg: repr[num] => repr[num]
@@ -109,20 +111,27 @@ object TTFI {
         s1.mul(e1)(e2)
       }
 
-      implicit object ExpSymIntEval extends ExpNumSym[Int, Eval] {
+      class ExpSymNumericEval[T](implicit e1: Numeric[T]) extends ExpNumSym[T, Eval] {
+        import e1.mkNumericOps
         def lit = Eval(_)
         def neg = x => Eval(-x.value)
         def add = x => y => Eval(x.value + y.value)
       }
+      implicit def ExpSymNumericEval[T: Numeric]: ExpNumSym[T, Eval] = new ExpSymNumericEval[T]
 
-      implicit object MulSymIntEval extends MulNumSym[Int, Eval] {
+      class MulSymNumericEval[T](implicit e1: Numeric[T]) extends MulNumSym[T, Eval] {
+        import e1.mkNumericOps
         def mul = x => y => Eval(x.value * y.value)
       }
+      implicit def MulSymNumericEval[T: Numeric]: MulNumSym[T, Eval] = new MulSymNumericEval[T]
 
-      def tf1[num, repr[_]](x: num)(implicit s1: ExpNumSym[num, repr]): repr[num] =
-        Add(Neg(Lit[num, repr](x)))(Lit[num, repr](x))
+      def tf1[T, repr[_]](implicit s1: ExpNumSym[T, repr], e1: Numeric[T]): repr[T] = {
+        implicit def fromInt = e1.fromInt _
+        Add(Neg(Lit[T, repr](10)))(Lit[T, repr](10))
+      }
 
-      val result1 = eval(tf1(10))
+      import scala.math.Numeric.LongIsIntegral
+      val result1 = eval(tf1[Long, Eval])
     }
 
     object ExpSym {
