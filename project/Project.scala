@@ -3,9 +3,9 @@ import Keys._
 import LogSettings._
 
 //TODO change the name of the object to reflect your project name.
-object ScalabootBuild extends Build {
+object TTFIBuild extends Build {
   val ORG_NAME = "sss" // TODO change this!
-  val PROJECT_NAME = "scalaboot" //TODO change this!
+  val PROJECT_NAME = "ttfi" //TODO change this!
 
   lazy val commonResolvers = Seq(
     "Maven.org" at "http://repo1.maven.org/maven2"
