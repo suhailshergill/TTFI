@@ -11,8 +11,9 @@ import com.twitter.scalding.Tool
  * Borrowed from com.twitter.scalding.Tool
  */
 object JobRunner {
-  def main(args: Array[String]) {
+  def main(args: Array[String]): Unit = {
     System.out.println("Starting JobRunner ...")
-    hadoop.util.ToolRunner.run(new hadoop.conf.Configuration, new Tool, args);
+    hadoop.util.ToolRunner.run(new hadoop.conf.Configuration, new Tool, args)
+    ()
   }
 }

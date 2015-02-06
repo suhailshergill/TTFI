@@ -494,7 +494,8 @@ object TTFI {
                 a <- self((x, s1, s2)).right
                 b <- self((y, s1, s2)).right
               } yield s1.mul(a)(b)
-              case x => fromTree_((x: (Tree[Integer], ExpSym[repr])) => self(x._1, s1, x._2))((x, s2))
+
+              case x => fromTree_((x: (Tree[Integer], ExpSym[repr])) => self((x._1, s1, x._2)))((x, s2))
             }
           }
           def fromTreeExt[repr[_]](x: Tree[Integer])(implicit s1: MulSym[repr], s2: ExpSym[repr]): Either[ErrMsg, repr[Integer]] = Fix(fromTreeExt_[repr])((x, s1, s2))

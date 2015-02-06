@@ -22,12 +22,12 @@ object TTFIBuild extends Build {
   lazy val commonDeps = Seq(
     "org.scalaz" %% "scalaz-core" % "7.0.6",
     "com.chuusai" %% "shapeless" % "2.0.0",
-    "org.scalatest" %% "scalatest" % "2.1.6" % "test,it",
-    "junit" % "junit" % "4.10" % "test,it",
-    "org.mockito" % "mockito-core" % "1.9.0" % "test,it"
+    "org.specs2" %% "specs2-core" % "2.4.15" % "test, it"
   )
 
-  lazy val defaultSettings = Defaults.itSettings ++
+  lazy val defaultSettings = 
+    Defaults.itSettings ++
+    CompilerSettings.settings ++
     logSettings ++
     sbtCompilerPlugins.settings ++
     sbtStartScript.settings ++

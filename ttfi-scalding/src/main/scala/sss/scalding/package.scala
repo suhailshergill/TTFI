@@ -7,6 +7,9 @@ package object scalding {
   type Pipe = cascading.pipe.Pipe
 
   type TP[A] = TypedPipe[A]
+}
+
+package scalding {
 
   // base job
   trait HJobT[T] {
