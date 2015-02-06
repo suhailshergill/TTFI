@@ -347,7 +347,7 @@ object TTFI {
       object OpenRecursion {
         import scala.annotation.tailrec
 
-        // not tail-recursive
+        // not @tailrec 
         def fix[A, B](f: (A => B) => (A => B)): A => B = {
           f((x: A) => fix(f)(x))
         }
@@ -365,6 +365,17 @@ object TTFI {
             f(_ => throw FixException())(x)
           } catch {
             case e: FixException => Fix(f andThen f)(x)
+          }
+        }
+
+        // http://rosettacode.org/wiki/Y_combinator#Scala
+        object Fix2 {
+          def apply[A, B](f: (A => B) => (A => B)) = {
+            case class W(wf: W => A => B) {
+              def apply(w: W) = wf(w)
+            }
+            val g: W => A => B = w => f(w(w))(_)
+            g(W(g))
           }
         }
 
