@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!--
+TODO: is there some way that we can reuse the configuration file between resources?
+
+Suhail proposes:
+one way would be to define the test config as being the same as the regular one
+and then modifying the xml via the scala accessor. We probably want to use a wrapper of typesafehub's config library.
+probably something like kadai's config wrapper (see https://github.com/simpleenergy/kadai/tree/feature/scalaz-7.1.0-compat/config)
+-->
+
+<configuration scan="true" scanPeriod="30 seconds" >
+    <appender name="fileAppender" class="ch.qos.logback.core.FileAppender">
+        <encoder>
+            <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+        </encoder>
+        <param name="File" value="myLogFileTest.log" />
+    </appender>
+
+    <root level="debug">
+        <appender-ref ref="fileAppender" />
+    </root>
+</configuration>
+        
