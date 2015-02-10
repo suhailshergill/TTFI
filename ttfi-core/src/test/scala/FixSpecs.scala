@@ -14,31 +14,25 @@ class FixSpecs extends Specification {
     else ack((m - 1, ack((m, n - 1))))
   }
 
-  def stacksafe[T](v: => T) = {
-    import scala.util.{ Try, Failure, Success }
-    Try(v) match {
-      case _: Success[T] => ok
-      case Failure(_: StackOverflowError) => ko("stack overflow")
-      case Failure(e) => ko(s"unexpected failure $e")
-    }
-  }
+  def beStackSafe[T]: Matcher[T] =
+    throwA[StackOverflowError].not.setMessage("This code is not stacksafe")
 
   val alot = (3, 11)
 
   import Final.TreeSem.OpenRecursion._
 
   def fix1 = {
-    // stacksafe(fix(acktabs)(alot)) // << not stack stafe
+    // fix(acktabs)(alot) beStackSafe // << not stack stafe
     pending
   }
 
   def fix2 = {
-    // stacksafe(Fix(acktabs)(alot)) // << not stack stafe
+    // Fix(acktabs)(alot) beStackSafe // << not stack stafe
     pending
   }
 
   def fix3 = {
-    // stacksafe(Fix2(acktabs)(alot)) // << not stack stafe
+    // Fix2(acktabs)(alot) beStackSafe // << not stack stafe
     pending
   }
 
