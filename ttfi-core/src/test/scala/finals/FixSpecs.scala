@@ -1,9 +1,10 @@
-import TTFI._
+package finals
 
 import org.specs2._
+import matcher._
 class FixSpecs extends Specification {
   def is = s2"""
-  $fix1 $fix2 $fix3 $fix4 should not blow the stack stack safe ${tag("slow")}
+	$fix1 $fix2 $fix3 $fix4 should not blow the stack stack safe ${tag("slow")}
 """
 
   // en.wikipedia.org/wiki/Ackermann_function
@@ -18,22 +19,21 @@ class FixSpecs extends Specification {
     throwA[StackOverflowError].not.setMessage("This code is not stacksafe")
 
   val alot = (3, 11)
-
-  import Final.TreeSem.OpenRecursion._
+  import TreeSem.OpenRecursion._
 
   def fix1 = {
-    // fix(acktabs)(alot) beStackSafe // << not stack stafe
-    pending
+    fix(acktabs)(alot) should beStackSafe // << not stack stafe
+    //pending
   }
 
   def fix2 = {
-    // Fix(acktabs)(alot) beStackSafe // << not stack stafe
-    pending
+    Fix(acktabs)(alot) should beStackSafe // << not stack stafe
+    //pending
   }
 
   def fix3 = {
-    // Fix2(acktabs)(alot) beStackSafe // << not stack stafe
-    pending
+    Fix2(acktabs)(alot) should beStackSafe // << not stack stafe
+    //pending
   }
 
   def fix4 = {
@@ -51,6 +51,6 @@ class FixSpecs extends Specification {
       } yield b
     }
 
-    stacksafe(tackermann(alot).run)
+    tackermann(alot).run should beStackSafe
   }
 }
