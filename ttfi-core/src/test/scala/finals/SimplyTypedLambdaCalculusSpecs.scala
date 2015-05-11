@@ -30,7 +30,7 @@ class SimplyTypedLambdaCalculusSpecs extends Specification {
 
   def eval_ = {
     eval(th1[Eval]) ==== 3 &&
-      eval(th4[Eval]) ==== 2
+      eval(th4[Eval])(_ - 1) ==== 2
   }
 
   def show_ = {
