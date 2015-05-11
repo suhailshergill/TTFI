@@ -40,7 +40,7 @@ object TTFIBuild extends Build {
       publishMavenStyle := true,
       organization := ORG_NAME,
       version := "0.1-SNAPSHOT",
-      scalaVersion := "2.11.5"
+      scalaVersion := "2.11.6"
     )
 
   def defaultProject: Project => Project = _.
