@@ -35,12 +35,12 @@ class PushNegSpecs extends Specification {
               lit(2))))
   }
 
-  val vtf1 = PushNeg(tf1[Ctx_=>[Eval]#τ]({})).value
-  val vtfm1 = PushNeg(tfm1[Ctx_=>[Eval]#τ]({}, {})).value
+  val vtf1 = PushNeg(tf1[Ctx_=>[Eval]#τ]).value
+  val vtfm1 = PushNeg(tfm1[Ctx_=>[Eval]#τ]).value
 
   def show = {
-    view(PushNeg(tf1[Ctx_=>[Debug]#τ]({}))) ==== "(8 + ((-1) + (-2)))" &&
-      view(PushNeg(tfm1[Ctx_=>[Debug]#τ]({}, {}))) ==== "(8 + (1 * (-2)))"
+    view(PushNeg(tf1[Ctx_=>[Debug]#τ])) ==== "(8 + ((-1) + (-2)))" &&
+      view(PushNeg(tfm1[Ctx_=>[Debug]#τ])) ==== "(8 + (1 * (-2)))"
   }
 
   def eval_ = {
