@@ -25,9 +25,11 @@ object Flattening {
   // implicit object ExpSym_LCACtx[repr](implicit s1: ExpSym[repr]) extends ExpSym[LCACtx_=>[repr]#τ]
   //
   // due to limitation that scala objects need to have a concrete type, this
-  // needs to be an 'implicit class'. _x is needed due to the requirement that
-  // implicit classes have one argument
-  implicit class ExpSym_Flat_LCACtx[repr[_]](_x: Any = null)(implicit e: ExpSym[repr]) extends ExpSym[LCACtx_=>[repr]#τ] {
+  // needs to be an 'implicit class' or an 'implicit def'. directly declaring an
+  // 'implicit def' runs afoul of scala's typechecker so we separate the
+  // implicit activation (i.e., the implicit def) from the actual definition.
+  implicit def ExpSym_Flat_LCACtx[repr[_]](implicit e: ExpSym[repr]) = new ExpSym_Flat_LCACtx[repr]
+  class ExpSym_Flat_LCACtx[repr[_]](implicit e: ExpSym[repr]) extends ExpSym[LCACtx_=>[repr]#τ] {
     import e._
     def lit = (x: Integer) => (ctx: LCACtx[repr]) => ctx match {
       case NonLCA => e.lit(x)

@@ -35,10 +35,10 @@ class FlatteningSpecs extends Specification {
   type PushNegCtx[T] = PushNeg.Ctx_=>[Exp.Debug]#τ[T]
   type FlatCtx[T] = Flattening.LCACtx_=>[Exp.Debug]#τ[T]
 
-  val tf3View = view(tf3)
+  val tf3View = view(tf3[Exp.Debug])
 
-  val tf3PushNegView = view(PushNeg(tf3[Ctx_=>[Exp.Debug]#τ]({})))
-  val tf3FlatteningView = view(Flattening(tf3[LCACtx_=>[Exp.Debug]#τ]({})))
+  val tf3PushNegView = view(PushNeg(tf3[Ctx_=>[Exp.Debug]#τ]))
+  val tf3FlatteningView = view(Flattening(tf3[LCACtx_=>[Exp.Debug]#τ]))
 
   def e1 = tf3View === "((8 + (-(1 + 2))) + (-(-(8 + (-(1 + 2))))))"
   def e2 = tf3PushNegView === "((8 + ((-1) + (-2))) + (8 + ((-1) + (-2))))"

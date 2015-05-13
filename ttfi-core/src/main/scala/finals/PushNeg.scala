@@ -10,7 +10,11 @@ object PushNeg {
   // this trait allows us to provide nicer type signatures. without this,
   // instead of Ctx_=>[repr]#τ we'd be using something like the following
   // ({ type λ[T] = Ctx => repr[T] })#λ
-  // alternatively, use <https://github.com/non/kind-projector>
+  //
+  // alternatively, use <https://github.com/non/kind-projector> with which this
+  // type would be described as 'λ[A => (Ctx => repr[A])]'. see
+  // <https://github.com/non/kind-projector#gotchas> for why the anonymous
+  // syntax can't be used.
   trait Ctx_=>[repr[_]] {
     type τ[T] = Ctx => repr[T]
   }
@@ -24,10 +28,8 @@ object PushNeg {
   // implicit object ExpSym_Ctx[repr](implicit s1: ExpSym[repr]) extends ExpSym[Ctx_=>[repr]#τ]
   //
   // due to limitation that scala objects need to have a concrete type, this
-  // needs to be an 'implicit class'. _x is needed due to the requirement that
-  // implicit classes have one argument
-  implicit class ExpSym_Ctx[repr[_]](_x: Any = null)(implicit e: ExpSym[repr]) extends ExpSym[Ctx_=>[repr]#τ] {
-    import e._
+  // needs to be an 'implicit class' or an 'implicit def'
+  implicit def ExpSym_Ctx[repr[_]](implicit e: ExpSym[repr]) = new ExpSym[Ctx_=>[repr]#τ] {
     def lit = (x: Integer) => (ctx: Ctx) => ctx match {
       case Pos => e.lit(x)
       case Neg => e.neg(e.lit(x))
@@ -40,7 +42,7 @@ object PushNeg {
   }
 
   import MulSym._
-  implicit class MulSym_Ctx[repr[_]](_x: Any = null)(implicit m: MulSym[repr]) extends MulSym[Ctx_=>[repr]#τ] {
+  implicit def MulSym_Ctx[repr[_]](implicit m: MulSym[repr]) = new MulSym[Ctx_=>[repr]#τ] {
     def mul = x => y => (ctx: Ctx) => ctx match {
       case Pos => m.mul(x(Pos))(y(Pos))
       case Neg => m.mul(x(Pos))(y(Neg))
