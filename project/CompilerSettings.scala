@@ -6,7 +6,6 @@ object CompilerSettings {
 			scalacOptions ++= Seq(
 			"-deprecation",
 			"-explaintypes",
-			"-target:jvm-1.8",
 		  "-encoding", "UTF-8",
 		  "-feature",
 		  "-language:higherKinds",

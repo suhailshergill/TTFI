@@ -13,13 +13,14 @@ object FP {
     case Neg(x) => -eval(x)
     case Add(x, y) => eval(x) + eval(y)
   }
+
   def view[A](x: Exp[A]): String = x match {
     case Lit(x) => x.toString
     case Neg(x) => s"(-${view(x)})"
     case Add(x, y) => s"(${view(x)} + ${view(y)})"
   }
 
-  val tf1 = Add(Lit(8), Neg(Add(Lit(1), Lit(2))))
+  val ti1 = Add(Lit(8), Neg(Add(Lit(1), Lit(2))))
 
   // pushNeg
   def pushNeg(x: Exp[Integer]): Exp[Integer] = x match {
@@ -33,5 +34,22 @@ object FP {
     case Neg(Add(e1, e2)) => Add(pushNeg(Neg(e1)), pushNeg(Neg(e2)))
     case Add(e1, e2) => Add(pushNeg(e1), pushNeg(e2))
   }
-  val result = view(pushNeg(tf1))
+
+  val ti1Norm = pushNeg(ti1)
+  val ti1NormView = view(ti1Norm)
+  val ti1NormEval = eval(ti1Norm)
+
+  // flata
+  def flata(x: Exp[Integer]): Exp[Integer] = x match {
+    case e @ Lit(_) => e
+    case e @ Neg(_) => e
+    case Add(Add(e1, e2), e3) => flata(Add(e1, Add(e2, e3)))
+    case Add(e1, e2) => Add(e1, flata(e2))
+  }
+
+  val norm = flata _ compose pushNeg _
+  val ti3 = Add(ti1, Neg(Neg(ti1)))
+  val ti3View = view(ti3)
+  val ti3Norm = norm(ti3)
+  val ti3NormView = view(ti3Norm)
 }
