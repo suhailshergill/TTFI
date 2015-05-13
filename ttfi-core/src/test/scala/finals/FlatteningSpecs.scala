@@ -32,16 +32,40 @@ class FlatteningSpecs extends Specification {
   import PushNeg._
   import Flattening._
 
-  type PushNegCtx[T] = PushNeg.Ctx_=>[Exp.Debug]#τ[T]
-  type FlatCtx[T] = Flattening.LCACtx_=>[Exp.Debug]#τ[T]
-
   val tf3View = view(tf3[Exp.Debug])
 
   val tf3PushNegView = view(PushNeg(tf3[Ctx_=>[Exp.Debug]#τ]))
   val tf3FlatteningView = view(Flattening(tf3[LCACtx_=>[Exp.Debug]#τ]))
 
+  object Normalize {
+    trait Norm[repr[_]] {
+      type Flattenable[T] = LCACtx_=>[repr]#τ[T]
+      type PushNegAndThenFlatten[T] = Ctx_=>[Flattenable]#τ[T]
+      // a representation domain where we have to perform PushNeg followed by
+      // Flattening is what we are defining as being "Normalizable"
+      type Normalizable[T] = PushNegAndThenFlatten[T]
+      type τ[T] = Normalizable[T] // to be consistent with finals.PushNeg etc
+    }
+    // scala is unable to come up with the below, so let's spoonfeed it some
+    implicit def ev[repr[_]: ExpSym]: ExpSym[Norm[repr]#Normalizable] =
+      ExpSym_Ctx[Norm[repr]#Flattenable]
+    def apply[repr[_]](e: Norm[repr]#Normalizable[Integer]): repr[Integer] = {
+      // defining the normalization computation. this is the composition of
+      // PushNeg.apply and Flattening.apply. this only works/makes sense when the
+      // expression falls under the "Normalizable" representation domain. in
+      // such cases, PushNeg.apply transforms it to the "Flattenable"
+      // representation domain while Flattening.apply takes care of the actual
+      // flattening.
+      Flattening(PushNeg[Norm[repr]#Flattenable](e))
+    }
+  }
+  val tf3NormView: String = {
+    import Normalize._
+    view(Normalize(tf3[Norm[Exp.Debug]#Normalizable]))
+  }
+
   def e1 = tf3View === "((8 + (-(1 + 2))) + (-(-(8 + (-(1 + 2))))))"
   def e2 = tf3PushNegView === "((8 + ((-1) + (-2))) + (8 + ((-1) + (-2))))"
   def e3 = tf3FlatteningView === "(8 + ((-(1 + 2)) + (-(-(8 + (-(1 + 2)))))))"
-  def e4 = pending // tf3NormView === "(8 + ((-1) + ((-2) + (8 + ((-1) + (-2))))))"
+  def e4 = tf3NormView === "(8 + ((-1) + ((-2) + (8 + ((-1) + (-2))))))"
 }
