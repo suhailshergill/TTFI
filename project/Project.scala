@@ -22,10 +22,15 @@ object TTFIBuild extends Build {
   lazy val commonDeps = Seq(
     "org.scalaz" %% "scalaz-core" % "7.0.6",
     "com.chuusai" %% "shapeless" % "2.0.0",
+    "com.assembla.scala-incubator" %% "graph-core" % "1.9.2",
+    "com.assembla.scala-incubator" %% "graph-constrained" % "1.9.0",
+    "com.assembla.scala-incubator" %% "graph-json" % "1.9.2",
+    "com.assembla.scala-incubator" %% "graph-dot" % "1.10.0",
+    "com.assembla.scala-incubator" %% "graph-test" % "1.9.0",
     "org.specs2" %% "specs2-core" % "2.4.15" % "test, it"
   )
 
-  lazy val defaultSettings = 
+  lazy val defaultSettings =
     Defaults.itSettings ++
     CompilerSettings.settings ++
     logSettings ++
@@ -40,7 +45,7 @@ object TTFIBuild extends Build {
       publishMavenStyle := true,
       organization := ORG_NAME,
       version := "0.1-SNAPSHOT",
-      scalaVersion := "2.11.6"
+      scalaVersion := "2.11.4"
     )
 
   def defaultProject: Project => Project = _.
