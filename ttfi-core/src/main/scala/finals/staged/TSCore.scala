@@ -4,6 +4,8 @@ package finals.staged
  * scala port of <http://okmij.org/ftp/tagless-final/TaglessStaged/TSCore.hs>
  */
 object TSCore {
+  import scalaz._
+  import Scalaz._
 
   // The object language (EDSL)
 
@@ -52,6 +54,21 @@ object TSCore {
   trait C[a] {
     def unC: VarCounter => u.Expr[a]
   }
+  object C {
+    import u._
+    // some utils to aid generation of Expr
+    import scala.reflect.runtime.currentMirror
+    import scala.reflect.api.{ Mirror, TreeCreator, Universe }
+    // similar to
+    // https://github.com/milessabin/shapeless/blob/master/examples/src/main/scala/shapeless/examples/staging.scala#L87
+    // below lacks annotation for TypeTag, iiuc that's more for shapeless
+    def mkExpr[T](tree: Tree): Expr[T] =
+      Expr[T](currentMirror, new TreeCreator {
+        def apply[U <: Universe with Singleton](m: Mirror[U]): U#Tree =
+          if (m eq currentMirror) tree.asInstanceOf[U#Tree]
+          else throw new IllegalArgumentException(s"Expr defined in $currentMirror cannot be migrated to other mirrors.")
+      })
+  }
   def runCS[a]: C[a] => String = cs => cs.unC(0).tree.toString
 
   // Adding `purely generated' lambda-expressions to our EDSL
@@ -63,32 +80,8 @@ object TSCore {
   }
 
   implicit object Lampure_R extends LamPure[R] {
-    def lamS[a, b] = rf => R(x => {
-      (rf apply R(x)).unR
-    })
+    def lamS[a, b] = rf => R { x => (rf apply R(x)).unR }
   }
-
-  // {{{ scratch
-
-  import scala.language.experimental.macros
-  import scala.reflect.macros.blackbox.Context
-  def hmm_impl(c: Context): c.Expr[Int] = {
-    import c.universe._
-    def foo: c.Expr[Int => Int => Int] =
-      reify((x: Int) => (y: Int) => x + y)
-
-    reify(foo.splice(1)(2))
-  }
-
-  def add = ((x: Int) => (y: Int) => x + y)
-  def addR: u.Expr[Int => Int => Int] = u reify add
-  def showExpr[a]: u.Expr[a] => String = e => u showRaw e.tree
-  def hmm = u.showRaw(u.reify((x: Int) => (y: Int) => x + y))
-  def qu: u.Expr[Int] = u reify { add(1)(2) }
-  def qux: u.Tree = qu.tree // 5
-  def qux2: String = u showRaw qux // Literal(Constant(5))
-
-  // }}}
 
   /*
   The connection to scala macros
@@ -102,6 +95,8 @@ object TSCore {
   addS    =  reify((x: Int) => (y: Int) => x + y)
   appS x y = reify(x.splice apply y.splice)
 
+  // lamS, using scala macros directly, would be a cross-stage evaluation as
+  // below
   lamS f   =  reify(x => (f apply reify(x)).splice)
 
   The combinators intS, addS, appS build code _values_, which are inert
@@ -113,70 +108,125 @@ object TSCore {
       def unC = const(u reify x)
     }
     def addS = new C[Int => Int => Int] {
-      def unC = const(
-        u reify ((x: Int) => (y: Int) => x + y))
+      def unC = const(u reify {
+        (x: Int) => (y: Int) => x + y
+      })
     }
     def mulS = new C[Int => Int => Int] {
-      def unC = const(
-        u reify ((x: Int) => (y: Int) => x * y))
+      def unC = const(u reify {
+        (x: Int) => (y: Int) => x * y
+      })
     }
     def appS[a, b] = cf => cx => new C[b] {
-      def unC = vc => u reify (
-        cf.unC(vc).splice apply cx.unC(vc).splice)
+      def unC = vc => u reify {
+        cf.unC(vc).splice apply cx.unC(vc).splice
+      }
     }
   }
+
+  // {{{ scratch
 
   object Scratch {
     import u._
     type Code[T] = Expr[T]
 
-    // def eta[a, b]: (Code[a] => Code[b]) => Code[a => b] = f => {
-    //   reify((x: a) => f(reify(x)).splice)
-    // }
-  }
+    // so i can create a term using this
+    // combining below with a VarCounter we get same functionality as we would
+    // using TermName . Context.freshName
+    def term: TermName = TermName("hmm") // term.toString = "hmm"
+    def foo: Expr[TermName] = reify { TermName("hmm") }
 
-  implicit object LamPure_C extends LamPure[C] {
-    def lamS[a, b] = fc => new C[a => b] {
-      def unC = vc => { // Expr[a => b]
-        import u._
-        val name = "x_" + vc
-        def lm: Function = q"(${name}: a) => ${name}"
-        def baz: Typed = q"(x: Int)"
-        def lm2: Expr[Function] = reify(q"(x: Intsdfldfkj) => x")
-        def lm3: Expr[Int => Int] = reify((x: Int) => x)
-        def hmm: Expr[Function] = reify(lm)
-        /*
-instance LamPure C where
-    lamS f = C $ \vc ->
-         let name = mkName $ "x_" ++ show vc
-             body = unC (f (C . const $ VarE name)) (succ vc)
-             in LamE [VarP name] body
-*/
+    def eta[a, b]: (Code[a] => Code[b]) => Code[a => b] = f => {
+      //reify((x: a) => f(reify(x)).splice)
 
-        // Function needs the following args:
-        // (vparams: List[reflect.runtime.universe.ValDef], body: reflect.runtime.universe.Tree)
-        def vparams: List[u.ValDef] = ???
-        def body: u.Tree = ???
-        def func: u.Function = u.Function(vparams, body)
-        //import c.universe._
-        def foo = u.Literal(u.Constant("x"))
-        def bar = {
-          import u._
-          val five: Expr[Int] = reify(5)
-          val fiveTree: Tree = five.tree
-          //val hmm = fiveTree.eval
-          ???
-        }
+      // <https://issues.scala-lang.org/browse/SI-5917> might help?
+      ???
+    }
 
-        // so how do we create ValDef ("VarP")
-        // - ValDef requires u.Symbol
-        //val valdef = u.ValDef(u.Symbol("x_" + vc))
+    def field: Expr[String] = ???
+    //val s: String = c.eval(c.Expr[String](field.tree.duplicate))
+    val name: String = "x12"
+    val name2: Expr[Int] = C.mkExpr[Int](q"${TermName(name)}")
 
-        // how do we use ValDef in body? ("VarE")
+    //import shapeless.examples.ReflectionUtils.mkExpr
+    def expr = C.mkExpr[Int => Int](q"(${TermName(name)}: Int) => ${TermName(name)}")
+    def expr2 = {
+      C.mkExpr[Int => Int](q"(${TermName(name)}: Int) => ${name2}")
+    }
 
-        ???
+    def add = ((x: Int) => (y: Int) => x + y)
+    def addR: u.Expr[Int => Int => Int] = u reify add
+    def showExpr[a]: u.Expr[a] => String = e => u showRaw e.tree
+    def hmm = u.showRaw(u.reify((x: Int) => (y: Int) => x + y))
+    def qu: u.Expr[Int] = u reify { add(1)(2) }
+    def qux: u.Tree = qu.tree // 5
+    def qux2: String = u showRaw qux // Literal(Constant(5))
+
+    object Context {
+      import scala.language.experimental.macros
+      import scala.reflect.macros.blackbox.Context
+      def hmm_impl(c: Context): c.Expr[Int] = {
+        import c.universe._
+        def foo: c.Expr[Int => Int => Int] =
+          reify((x: Int) => (y: Int) => x + y)
+
+        reify(foo.splice(1)(2))
       }
     }
   }
 
+  // }}}
+
+  implicit object LamPure_C extends LamPure[C] {
+    import u._
+    def lamS[a, b] = fc => new C[a => b] {
+      def unC = vc => { // Expr[a => b]
+        val name = "x_" + vc
+        def body: Expr[b] = {
+          fc(new C[a] {
+            def unC = vc => C.mkExpr[a](q"${TermName(name)}")
+          }) unC (vc + 1)
+        }
+        C.mkExpr[a => b](q"(${TermName(name)}: a) => ${body}")
+      }
+    }
+  }
+
+  // ------------------------------------------------------------------------
+  // Code combinators: generating code in an Applicative m
+  // The code is pure but its generation may have an effect.
+
+  // A Haskell value of the type
+  // (Applicative m, SSym repr) => m (repr a)
+  // represents a generator, in the generating applicative m,
+  // of the expression in the object language of the type a
+
+  def $$[repr[_]: SSym, m[_]: Applicative, a, b]: m[repr[a => b]] => m[repr[a]] => m[repr[b]] =
+    mrab => mra => (mrab |@| mra) { implicitly[SSym[repr]].appS[a, b](_)(_) }
+
+  def int[repr[_]: SSym, m[_]: Applicative]: Int => m[repr[Int]] = x => {
+    implicitly[Applicative[m]].point { x |> implicitly[SSym[repr]].intS }
+  }
+
+  /*
+infixl 2 $$
+($$) :: (SSym repr, Applicative m) =>
+        m (repr (a->b)) -> m (repr a) -> m (repr b)
+f $$ x = appS <$> f <*> x
+
+int :: (SSym repr, Applicative m) => Int -> m (repr Int)
+int = pure . intS
+
+infixl 7 *:
+infixl 6 +:
+
+(+:) :: (SSym repr, Applicative m) =>
+        m (repr Int) -> m (repr Int) -> m (repr Int)
+x +: y = pure addS $$ x $$ y
+
+(*:) :: (SSym repr, Applicative m) =>
+        m (repr Int) -> m (repr Int) -> m (repr Int)
+x *: y = pure mulS $$ x $$ y
+
+*/
 }

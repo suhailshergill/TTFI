@@ -6,8 +6,8 @@ class TSCoreTest extends Specification {
   import TSCore._
   import scalaz._
   import Scalaz._
-  "SSym should" >> {
-    "allow you to define terms and" >> {
+  "SSym should allow you to" >> {
+    "define terms and" >> {
       def exS1[repr[_]: SSym]: repr[Int] = {
         val ev = implicitly[SSym[repr]]
         import ev._
@@ -18,9 +18,22 @@ class TSCoreTest extends Specification {
           "((x: Int) => ((y: Int) => x.$plus(y))).apply(x).apply(x)"
       }
     }
-    "define LamPure in C" >> {
-      println(hmm)
-      pending
+    "define LamPure in C and" >> {
+      def exS2[repr[_]](implicit ev1: SSym[repr], ev2: LamPure[repr]): repr[Int => Int => Int] = {
+        import ev1._; import ev2._
+
+        type T = repr[Int]
+        lamS { (x: T) =>
+          lamS { (y: T) =>
+            addS |> $(x) |> $(y)
+          }
+        }
+      }
+      "evaluate them in C[_] repr" in {
+        println(runCS(exS2[C]))
+        runCS(exS2[C]) ==
+          "((x_0: a) => ((x_1: a) => ((x: Int) => ((y: Int) => x.$plus(y))).apply(x_0).apply(x_1)))"
+      }
     }
   }
 
