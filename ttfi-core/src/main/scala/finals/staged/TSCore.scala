@@ -61,7 +61,9 @@ object TSCore {
     import scala.reflect.api.{ Mirror, TreeCreator, Universe }
     // similar to
     // https://github.com/milessabin/shapeless/blob/master/examples/src/main/scala/shapeless/examples/staging.scala#L87
-    // below lacks annotation for TypeTag, iiuc that's more for shapeless
+    // below lacks annotation for TypeTag, iiuc that's more for
+    // shapeless. perhaps not since that allows us to get the name of the type
+    // and other things at runtime, as per <http://stackoverflow.com/a/31191219>
     def mkExpr[T](tree: Tree): Expr[T] =
       Expr[T](currentMirror, new TreeCreator {
         def apply[U <: Universe with Singleton](m: Mirror[U]): U#Tree =
@@ -76,11 +78,11 @@ object TSCore {
   // the binder.
   // See below for more general lambda-expressions
   trait LamPure[repr[_]] {
-    def lamS[a, b]: (repr[a] => repr[b]) => repr[a => b]
+    def lamS[a: u.TypeTag, b]: (repr[a] => repr[b]) => repr[a => b]
   }
 
   implicit object Lampure_R extends LamPure[R] {
-    def lamS[a, b] = rf => R { x => (rf apply R(x)).unR }
+    def lamS[a: u.TypeTag, b] = rf => R { x => (rf apply R(x)).unR }
   }
 
   /*
@@ -179,7 +181,7 @@ object TSCore {
 
   implicit object LamPure_C extends LamPure[C] {
     import u._
-    def lamS[a, b] = fc => new C[a => b] {
+    def lamS[a: TypeTag, b] = (fc: C[a] => C[b]) => new C[a => b] {
       def unC = vc => { // Expr[a => b]
         val name = "x_" + vc
         def body: Expr[b] = {
@@ -187,7 +189,7 @@ object TSCore {
             def unC = vc => C.mkExpr[a](q"${TermName(name)}")
           }) unC (vc + 1)
         }
-        C.mkExpr[a => b](q"(${TermName(name)}: a) => ${body}")
+        C.mkExpr[a => b](q"(${TermName(name)}: ${typeOf[a]}) => ${body}")
       }
     }
   }

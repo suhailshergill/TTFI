@@ -20,19 +20,20 @@ class TSCoreTest extends Specification {
     }
     "define LamPure in C and" >> {
       def exS2[repr[_]](implicit ev1: SSym[repr], ev2: LamPure[repr]): repr[Int => Int => Int] = {
+        import scala.reflect.runtime.{ universe => u }
         import ev1._; import ev2._
 
         type T = repr[Int]
-        lamS { (x: T) =>
-          lamS { (y: T) =>
+        implicit val ev3 = implicitly[u.TypeTag[Int]]
+        lamS apply { (x: T) =>
+          lamS apply { (y: T) =>
             addS |> $(x) |> $(y)
           }
         }
       }
       "evaluate them in C[_] repr" in {
-        println(runCS(exS2[C]))
         runCS(exS2[C]) ==
-          "((x_0: a) => ((x_1: a) => ((x: Int) => ((y: Int) => x.$plus(y))).apply(x_0).apply(x_1)))"
+          "((x_0: Int) => ((x_1: Int) => ((x: Int) => ((y: Int) => x.$plus(y))).apply(x_0).apply(x_1)))"
       }
     }
   }
