@@ -17,7 +17,7 @@ object TTFIBuild extends Build {
     scalacOptions.settings ++
     Seq(
       CommonResolvers.settings,
-      base, numbers, specs2,
+      base, specs2,
       retrieveManaged := true,
       publishMavenStyle := true,
       organization in ThisBuild := ORG,
