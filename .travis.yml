@@ -7,7 +7,7 @@ jdk:
   - oraclejdk8
 
 script:
-  - sbt 'test-only sss.initial.*'
+  - sbt ++$TRAVIS_SCALA_VERSION 'test-only * -- exclude slow'
 
 notifications:
   webhooks:
