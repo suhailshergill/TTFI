@@ -7,7 +7,7 @@ jdk:
   - oraclejdk8
 
 script:
-  - sbt test
+  - sbt 'test-only sss.finals.*'
 
 notifications:
   webhooks:
