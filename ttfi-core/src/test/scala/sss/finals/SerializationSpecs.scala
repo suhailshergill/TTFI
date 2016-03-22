@@ -35,25 +35,40 @@ class SerializationSpecs extends Specification {
     // fromTree translation (via the ExpSym instance for the 'repr' pair)
     val result: Either[ErrMsg, String] = ClosedRecursion.fromTree[Debug](tf1_tree).right.map(view)
     val result2: Either[ErrMsg, String] = OpenRecursion.fromTree[Debug](tf1_tree).right.map(view)
-    // def tf1_tree_parse[repr[_]] = OpenRecursion.Poly2.fromTree[repr](tf1_tree)
     def result2a[repr[_]](implicit s1: ExpSym[repr]): Either[ErrMsg, repr[Integer]] = {
-      OpenRecursion.Poly.fromTree[repr](tf1_tree)
-      // tf1_tree_parse[repr].right.map(_(s1))
+      OpenRecursion.fromTree[repr](tf1_tree)
     }
     val result2b: Either[ErrMsg, String] = result2a[Debug].right.map(view)
 
     val result3: Either[ErrMsg, String] = ClosedRecursion.fromTreeExt[Debug](tfm1_tree).right.map(view)
     val result4: Either[ErrMsg, String] = OpenRecursion.fromTreeExt[Debug](tfm1_tree).right.map(view)
     def result4a[repr[_]](implicit s1: ExpSym[repr], s2: MulSym[repr]) = {
-      OpenRecursion.Poly.fromTreeExt[repr](tfm1_tree)
+      OpenRecursion.fromTreeExt[repr](tfm1_tree)
     }
     val result4b: Either[ErrMsg, String] = result4a[Debug].right.map(view)
+
+    val tf1_int3 = {
+      import OpenRecursion._
+      // FIXME: make it easier to construct these implicits
+      implicit def ExpSym_Debug_Tree: ExpSym[(Debug :> Tree)#τ] = ExpSym_Dup[Debug, Tree]
+      implicit def ExpSym_Eval_Debug_Tree: ExpSym[(Eval :> (Debug :> Tree)#τ)#τ] = ExpSym_Dup[Eval, (Debug :> Tree)#τ]
+
+      val stream = new java.io.ByteArrayOutputStream()
+      Console.withOut(stream) {
+        check_consume(thrice) _ apply fromTree[(Eval :> (Debug :> Tree)#τ)#τ](tf1_tree)
+      }
+      stream.toString
+    }
 
     result.isRight &&
       result2.isRight &&
       result3.isLeft &&
       result4.isRight &&
       result2 ==== result2b &&
-      result4 ==== result4b
+      result4 ==== result4b &&
+      tf1_int3 ==== """5
+(8 + (-(1 + 2)))
+Node(Add,List(Node(Lit,List(Leaf(8))), Node(Neg,List(Node(Add,List(Node(Lit,List(Leaf(1))), Node(Lit,List(Leaf(2)))))))))
+"""
   }
 }
