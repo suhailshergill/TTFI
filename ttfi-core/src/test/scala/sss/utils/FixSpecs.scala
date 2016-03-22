@@ -4,7 +4,10 @@ import org.specs2._
 import matcher._
 class FixSpecs extends Specification {
   def is = s2"""
-  $fix $fixException $fixSimple should not blow the stack ${tag("slow")}
+  Fixpoint operator should not blow the stack       ${section("slow")}
+  Fix.apply $fix
+  Fix.Exception $fixException
+  Fix.fixSimple $fixSimple                          ${section("slow")}
 """
 
   // en.wikipedia.org/wiki/Ackermann_function
