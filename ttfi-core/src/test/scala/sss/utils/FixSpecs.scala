@@ -39,16 +39,16 @@ class FixSpecs extends Specification {
   }.pendingUntilFixed
 
   def fix = {
-    import cats._, std.all._, free.{Free, Trampoline}, Trampoline._
+    import Fix.instances._
 
     // <http://eed3si9n.com/herding-cats/stackless-scala-with-free-monads.html>
-    def acktabs(ack: ((Int, Int)) => Trampoline[Int])(in: (Int, Int)): Trampoline[Int] = {
+    def acktabs(ack: ((Int, Int)) => Fix.T[Int])(in: (Int, Int)): Fix.T[Int] = {
       val (m, n) = in
-      if (m <= 0) Trampoline.done(n + 1)
-      else if (n <= 0) suspend(ack((m - 1, 1)))
+      if (m <= 0) Fix.T.done(n + 1)
+      else if (n <= 0) Fix.T.suspend(ack((m - 1, 1)))
       else for {
-        a <- suspend(ack((m, n - 1)))
-        b <- suspend(ack((m - 1, a)))
+        a <- Fix.T.suspend(ack((m, n - 1)))
+        b <- Fix.T.suspend(ack((m - 1, a)))
       } yield b
     }
     Fix(acktabs)(alot).run should beStackSafe[Int]
