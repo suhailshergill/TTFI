@@ -9,6 +9,7 @@ object Dependencies {
     lazy val scalacheck = "1.12.5"
     lazy val shapelessContrib = "0.4"
     lazy val spark = "1.6.1"
+    lazy val predef = "master"
 
     implicit class Ops(s: String) {
       def asMM: String = s.split('.').toSeq.init.mkString(".")
@@ -86,5 +87,7 @@ object Dependencies {
     , `org.apache.spark:spark-mllib`
     , `org.apache.spark:spark-sql`
   )
+
+  lazy val `sss.predef` = RootProject(uri("git://github.com/suhailshergill/predef.git#%s".format(Versions.predef)))
 
 }

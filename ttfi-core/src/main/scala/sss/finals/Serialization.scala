@@ -58,7 +58,7 @@ object TreeSem {
   // }}}
 
   object OpenRecursion {
-    import sss.utils.Fix, Fix.instances._
+    import sss.predef._, Fix.instances._
 
     type FromTree[repr[_]] = Tree[Integer] => Fix.T[Either[ErrMsg, repr[Integer]]]
     def fromTree_[repr[_]](s1: ExpSym[repr])(self: FromTree[repr]): FromTree[repr] = x => x match {

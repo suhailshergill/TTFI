@@ -32,6 +32,7 @@ object TTFIBuild extends Build {
 
   def defaultProject: Project => Project = _.
     configs(IntegrationTest).
+    dependsOn(`sss.predef`).
     settings(defaultSettings: _*).
     enablePlugins(JavaAppPackaging).
     settings(testOptions in Test := Seq(Tests.Filter(s => s.endsWith("Specs")))).
