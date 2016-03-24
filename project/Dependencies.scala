@@ -9,7 +9,7 @@ object Dependencies {
     lazy val scalacheck = "1.12.5"
     lazy val shapelessContrib = "0.4"
     lazy val spark = "1.6.1"
-    lazy val predef = "0b5a2cb"
+    lazy val predef = "f628370"
 
     implicit class Ops(s: String) {
       def asMM: String = s.split('.').toSeq.init.mkString(".")

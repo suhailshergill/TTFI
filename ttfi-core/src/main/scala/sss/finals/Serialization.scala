@@ -58,36 +58,45 @@ object TreeSem {
   // }}}
 
   object OpenRecursion {
-    import sss.predef._, Fix.instances._
+    import sss.predef._, Fix._
 
-    type FromTree[repr[_]] = Tree[Integer] => Fix.T[Either[ErrMsg, repr[Integer]]]
-    def fromTree_[repr[_]](s1: ExpSym[repr])(self: FromTree[repr]): FromTree[repr] = x => x match {
-      case Node("Lit", Seq(Leaf(x))) => Fix.T.done(safeRead(x).right.map(s1.lit(_)))
-      case Node("Neg", Seq(x)) => for {
-        y <- Fix.T.suspend(self(x))
-      } yield y.right.map(s1.neg(_))
-      case Node("Add", Seq(x, y)) => for {
-        x <- Fix.T.suspend(self(x))
-        y <- Fix.T.suspend(self(y))
-      } yield for {
-        a <- x.right
-        b <- y.right
-      } yield s1.add(a)(b)
-      case _ => Fix.T.done(Left(s"Parse error in ${x}"))
+    type FromTree[T[_], repr[_]] = Tree[Integer] => T[Either[ErrMsg, repr[Integer]]]
+    def fromTree_[T[_]: Sym, repr[_]](s1: ExpSym[repr])(self: FromTree[T, repr]): FromTree[T, repr] = x => {
+      val e1 = implicitly[Sym[T]]
+      import e1._
+      x match {
+        case Node("Lit", Seq(Leaf(x))) => done(safeRead(x).right.map(s1.lit(_)))
+        case Node("Neg", Seq(x)) => for {
+          y <- suspend(self(x))
+        } yield y.right.map(s1.neg(_))
+        case Node("Add", Seq(x, y)) => for {
+          x <- suspend(self(x))
+          y <- suspend(self(y))
+        } yield for {
+          a <- x.right
+          b <- y.right
+        } yield s1.add(a)(b)
+        case _ => done(Left(s"Parse error in ${x}"))
+      }
     }
-    def fromTree[repr[_]](x: Tree[Integer])(implicit s1: ExpSym[repr]) = Fix(fromTree_[repr](s1))(x).run
+    def fromTree[repr[_]](x: Tree[Integer])(implicit s1: ExpSym[repr]) =
+      Fix(fromTree_[TailRec, repr](s1)).apply(x).recurse
 
-    def fromTreeExt_[repr[_]](s1: (MulSym[repr], ExpSym[repr]))(self: FromTree[repr]): FromTree[repr] = x => x match {
-      case Node("Mul", Seq(x, y)) => for {
-        x <- Fix.T.suspend(self(x))
-        y <- Fix.T.suspend(self(y))
-      } yield for {
-        a <- x.right
-        b <- y.right
-      } yield s1._1.mul(a)(b)
-      case x => fromTree_(s1._2)(self)(x)
+    def fromTreeExt_[T[_]: Sym, repr[_]](s1: (MulSym[repr], ExpSym[repr]))(self: FromTree[T, repr]): FromTree[T, repr] = x => {
+      val e1 = implicitly[Sym[T]]
+      import e1._
+      x match {
+        case Node("Mul", Seq(x, y)) => for {
+          x <- suspend(self(x))
+          y <- suspend(self(y))
+        } yield for {
+          a <- x.right
+          b <- y.right
+        } yield s1._1.mul(a)(b)
+        case x => fromTree_(s1._2)(self) apply x
+      }
     }
-    def fromTreeExt[repr[_]](x: Tree[Integer])(implicit s1: MulSym[repr], s2: ExpSym[repr]): Either[ErrMsg, repr[Integer]] = Fix(fromTreeExt_[repr]((s1, s2)))(x).run
+    def fromTreeExt[repr[_]](x: Tree[Integer])(implicit s1: MulSym[repr], s2: ExpSym[repr]): Either[ErrMsg, repr[Integer]] = Fix(fromTreeExt_[TailRec, repr]((s1, s2))).apply(x).recurse
 
     // {{{ duplicating interpreter
 
